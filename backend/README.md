@@ -105,7 +105,7 @@ The readiness formula is versioned and seeded as `v1`: resume 25%, skills 25%, i
 
 ## Integration checks
 
-With PostgreSQL, the API, and the AI service running, run the API unit tests with `npm test` from `backend\api`. To exercise the database-backed HTTP workflows, first create a temporary administrator using the `admin:create` steps above, set `TEST_ADMIN_EMAIL` and `TEST_ADMIN_PASSWORD` in that terminal, then run `npm run test:integration`. The integration check creates uniquely named test records and removes its students, notice, cohort, and coding question afterward.
+With PostgreSQL, the API, and the AI service running, run the API unit tests with `npm test` from `backend\api`. To exercise the database-backed HTTP workflows, first create a temporary administrator using the `admin:create` steps above, set `TEST_ADMIN_EMAIL` and `TEST_ADMIN_PASSWORD` in that terminal, then run `npm run test:integration`. The integration check creates uniquely named test records and removes its students, placement officer, notices, cohorts, and coding question afterward.
 
 On the original development laptop, PostgreSQL 16 is kept in the ignored `D:\Major Project\.local\postgresql` directory and listens on `127.0.0.1:5432`. Start it after a reboot with:
 

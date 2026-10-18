@@ -12,7 +12,7 @@
     "db:seed": "node src/db/seed.js",
     "admin:create": "node src/db/createAdmin.js",
     "test": "node --test",
-    "test:integration": "node scripts/integrationSmoke.js"
+    "test:integration": "node scripts/backendIntegrationTest.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

@@ -3,7 +3,7 @@ import { query } from "../db/pool.js";
 import { authenticate } from "../middleware/auth.js";
 import { HttpError } from "../middleware/errors.js";
 import { uuid } from "../middleware/validate.js";
-import { requireStudent } from "../services/student.js";
+import { requireStudent } from "../services/studentHelpers.js";
 import { calculateReadiness } from "../services/readinessScore.js";
 
 export const readinessRouter = Router();

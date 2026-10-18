@@ -11,8 +11,8 @@ import {
   analyzeResumeText,
   getAIProvider,
 } from "../services/aiClient.js";
-import { requireStudent } from "../services/student.js";
-import { getStoredResumeFile, removeStoredFile, resumeUpload } from "../services/uploads.js";
+import { requireStudent } from "../services/studentHelpers.js";
+import { getStoredResumeFile, removeStoredFile, resumeUpload } from "../services/resumeFiles.js";
 import { recordAudit } from "../services/audit.js";
 
 export const resumeRouter = Router();

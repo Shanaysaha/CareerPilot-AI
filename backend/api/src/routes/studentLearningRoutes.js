@@ -9,7 +9,7 @@ import {
   getAIProvider,
   recommendCareer,
 } from "../services/aiClient.js";
-import { requireStudent, scorePercent } from "../services/student.js";
+import { requireStudent, scorePercent } from "../services/studentHelpers.js";
 
 export const learningRouter = Router();
 learningRouter.use(authenticate);

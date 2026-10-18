@@ -1,15 +1,15 @@
 import express from "express";
-import { authRouter } from "./routes/auth.js";
-import { profileRouter } from "./routes/profiles.js";
-import { resumeRouter } from "./routes/resume.js";
-import { learningRouter } from "./routes/learning.js";
+import { authRouter } from "./routes/authRoutes.js";
+import { profileRouter } from "./routes/profileRoutes.js";
+import { resumeRouter } from "./routes/resumeRoutes.js";
+import { learningRouter } from "./routes/studentLearningRoutes.js";
 import {
   readinessRouter,
   dashboardRouter,
   notificationRouter,
-} from "./routes/readiness.js";
-import { staffRouter, adminRouter } from "./routes/staff.js";
-import { adminContentRouter } from "./routes/adminContent.js";
+} from "./routes/readinessRoutes.js";
+import { staffRouter, adminRouter } from "./routes/staffRoutes.js";
+import { adminContentRouter } from "./routes/adminContentRoutes.js";
 import { env } from "./config/env.js";
 import { errorHandler, HttpError } from "./middleware/errors.js";
 

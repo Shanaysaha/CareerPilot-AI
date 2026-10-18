@@ -8,7 +8,7 @@ import { authenticate } from "../middleware/auth.js";
 import { HttpError } from "../middleware/errors.js";
 import { rateLimit } from "../middleware/rateLimit.js";
 import { email, text } from "../middleware/validate.js";
-import { removeStoredFile } from "../services/uploads.js";
+import { removeStoredFile } from "../services/resumeFiles.js";
 
 export const authRouter = Router();
 const loginLimit = rateLimit({ limit: 8, windowMs: 60_000 });
