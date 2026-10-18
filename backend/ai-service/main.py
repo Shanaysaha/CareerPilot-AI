@@ -22,13 +22,36 @@ load_dotenv()
 app = FastAPI(title="CareerPilot AI Service", version="1.0.0")
 PROVIDER = os.getenv("AI_PROVIDER", "mock").strip().lower()
 MAX_FILE_BYTES = int(os.getenv("MAX_RESUME_SIZE_MB", "5")) * 1024 * 1024
+if PROVIDER not in {"mock", "openai", "gemini"}:
+    raise RuntimeError("AI_PROVIDER must be mock, openai, or gemini")
 
 
 def check_internal_key(x_internal_key: str | None = Header(default=None)):
-    """Require a shared key when configured; keep local-only development simple."""
+    """Require a configured shared key for every internal endpoint."""
     expected = os.getenv("AI_SERVICE_API_KEY", "").strip()
-    if expected and x_internal_key != expected:
+    if not expected or re.search(r"change|replace|example", expected, re.IGNORECASE):
+        raise HTTPException(status_code=503, detail="AI service internal key is not configured")
+    if x_internal_key != expected:
         raise HTTPException(status_code=401, detail="Internal service key is invalid")
+
+
+def clean_string_list(value, field: str, limit: int, item_limit: int = 300) -> list[str]:
+    """Validate and bound lists returned by an external AI provider."""
+    if not isinstance(value, list):
+        raise HTTPException(status_code=502, detail=f"AI response field {field} must be a list")
+    return [item.strip()[:item_limit] for item in value[:limit] if isinstance(item, str) and item.strip()]
+
+
+def clean_score(value) -> int:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= value <= 100:
+        raise HTTPException(status_code=502, detail="AI response score must be a number from 0 to 100")
+    return round(value)
+
+
+def clean_text(value, field: str, limit: int) -> str:
+    if not isinstance(value, str):
+        raise HTTPException(status_code=502, detail=f"AI response field {field} must be text")
+    return value.strip()[:limit]
 
 
 class ResumeRequest(BaseModel):
@@ -108,6 +131,8 @@ def call_provider(system_text: str, user_text: str) -> str:
 
 def parse_json_response(text: str) -> dict:
     """Accept a JSON object even if a provider wraps it in a code block."""
+    if not isinstance(text, str):
+        raise HTTPException(status_code=502, detail="AI provider response must be text")
     cleaned = text.strip()
     cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", cleaned, flags=re.IGNORECASE)
     start, end = cleaned.find("{"), cleaned.rfind("}")
@@ -180,14 +205,14 @@ def make_resume_analysis(resume_text: str, target_role: str = "") -> dict:
     role_text = f"Target role: {target_role or 'not specified'}\n" if target_role else ""
     raw = call_provider(system, role_text + "Resume text:\n" + resume_text)
     result = parse_json_response(raw)
-    score = max(0, min(100, int(result.get("score", 0))))
+    score = clean_score(result.get("score"))
     return {
         "score": score,
-        "detectedSkills": result.get("detectedSkills", [])[:30],
-        "strengths": result.get("strengths", [])[:10],
-        "suggestions": result.get("suggestions", [])[:10],
-        "missingSkills": result.get("missingSkills", [])[:20],
-        "summary": str(result.get("summary", ""))[:2000],
+        "detectedSkills": clean_string_list(result.get("detectedSkills"), "detectedSkills", 30),
+        "strengths": clean_string_list(result.get("strengths"), "strengths", 10),
+        "suggestions": clean_string_list(result.get("suggestions"), "suggestions", 10),
+        "missingSkills": clean_string_list(result.get("missingSkills"), "missingSkills", 20),
+        "summary": clean_text(result.get("summary"), "summary", 2000),
         "targetRole": target_role,
         "provider": PROVIDER,
     }
@@ -232,10 +257,10 @@ def interview_feedback(request: InterviewRequest):
     raw = call_provider(system, f"Question: {request.question}\nCandidate answer: {request.answer}")
     result = parse_json_response(raw)
     return {
-        "score": max(0, min(100, int(result.get("score", 0)))),
-        "strengths": result.get("strengths", [])[:8],
-        "improvements": result.get("improvements", [])[:8],
-        "feedback": str(result.get("feedback", ""))[:2000],
+        "score": clean_score(result.get("score")),
+        "strengths": clean_string_list(result.get("strengths"), "strengths", 8),
+        "improvements": clean_string_list(result.get("improvements"), "improvements", 8),
+        "feedback": clean_text(result.get("feedback"), "feedback", 2000),
         "provider": PROVIDER,
     }
 
@@ -257,8 +282,19 @@ def career_recommendations(request: CareerRequest):
         f"Missing skills: {request.missing_skills}\nSuggest practical next learning priorities."
     )
     result = parse_json_response(call_provider(system, prompt))
+    recommendations = result.get("recommendations")
+    if not isinstance(recommendations, list):
+        raise HTTPException(status_code=502, detail="AI recommendations must be a list")
+    cleaned = []
+    for item in recommendations[:10]:
+        if not isinstance(item, dict):
+            raise HTTPException(status_code=502, detail="AI recommendation items must be objects")
+        cleaned.append({
+            "skill": clean_text(item.get("skill"), "recommendation skill", 120),
+            "reason": clean_text(item.get("reason"), "recommendation reason", 500),
+        })
     return {
         "targetRole": request.target_role,
-        "recommendations": result.get("recommendations", [])[:10],
+        "recommendations": cleaned,
         "provider": PROVIDER,
     }

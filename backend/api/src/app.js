@@ -9,6 +9,7 @@ import {
   notificationRouter,
 } from "./routes/readiness.js";
 import { staffRouter, adminRouter } from "./routes/staff.js";
+import { adminContentRouter } from "./routes/adminContent.js";
 import { env } from "./config/env.js";
 import { errorHandler, HttpError } from "./middleware/errors.js";
 
@@ -56,6 +57,7 @@ app.use("/api/dashboard", dashboardRouter);
 app.use("/api/notifications", notificationRouter);
 app.use("/api/officer", staffRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/admin", adminContentRouter);
 app.use("/api", learningRouter);
 
 app.use((request, response, next) =>

@@ -4,7 +4,8 @@ const windows = new Map();
 // with multiple API servers should move this counter to shared infrastructure.
 export function rateLimit({ limit = 10, windowMs = 60_000 } = {}) {
   return (request, response, next) => {
-    const key = `${request.ip}:${request.path}`;
+    const route = request.route?.path || request.path;
+    const key = `${request.ip}:${request.method}:${request.baseUrl}${route}`;
     const now = Date.now();
     let bucket = windows.get(key);
     if (!bucket || now >= bucket.resetAt) {

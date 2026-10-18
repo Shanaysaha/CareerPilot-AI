@@ -5,8 +5,8 @@ import { pool } from "./db/pool.js";
 
 validateEnvironment();
 await fs.mkdir(env.resumeStoragePath, { recursive: true });
-const server = app.listen(env.port, "0.0.0.0", () => {
-  console.log(`CareerPilot API listening on http://localhost:${env.port}`);
+const server = app.listen(env.port, env.host, () => {
+  console.log(`CareerPilot API listening on http://${env.host}:${env.port}`);
 });
 
 async function stop(signal) {

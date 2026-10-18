@@ -42,11 +42,35 @@ export const resumeUpload = multer({
 
 export async function removeStoredFile(filePath) {
   if (!filePath) return;
-  const resolved = path.resolve(filePath);
-  const root = path.resolve(env.resumeStoragePath) + path.sep;
-  if (!resolved.startsWith(root))
-    throw new Error("Refusing to remove a file outside resume storage.");
+  const resolved = await managedPath(filePath, false);
   await fs.unlink(resolved).catch((error) => {
     if (error.code !== "ENOENT") throw error;
   });
+}
+
+export async function getStoredResumeFile(filePath) {
+  return managedPath(filePath, true);
+}
+
+async function managedPath(filePath, mustExist) {
+  const root = path.resolve(env.resumeStoragePath);
+  const resolved = path.resolve(filePath);
+  if (!resolved.startsWith(root + path.sep)) {
+    throw new Error("Refusing to access a file outside resume storage.");
+  }
+  if (!mustExist) {
+    const rootReal = await fs.realpath(root);
+    const parentReal = await fs.realpath(path.dirname(resolved));
+    const checked = path.join(parentReal, path.basename(resolved));
+    if (!checked.startsWith(rootReal + path.sep)) {
+      throw new Error("Refusing to access a file outside resume storage.");
+    }
+    return checked;
+  }
+  const rootReal = await fs.realpath(root);
+  const fileReal = await fs.realpath(resolved);
+  if (!fileReal.startsWith(rootReal + path.sep)) {
+    throw new Error("Refusing to access a file outside resume storage.");
+  }
+  return fileReal;
 }

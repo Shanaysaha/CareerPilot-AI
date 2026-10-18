@@ -23,7 +23,7 @@ learningRouter.get("/roles", async (req, res) => {
 });
 learningRouter.get("/skills", async (req, res) => {
   const result = await query(
-    "SELECT id,name,category FROM skills ORDER BY category,name",
+    "SELECT id,name,category FROM skills WHERE is_active=true ORDER BY category,name",
   );
   res.json({ skills: result.rows });
 });
@@ -76,7 +76,7 @@ learningRouter.get("/skills/gaps", async (req, res) => {
   const result = await query(
     `SELECT cr.name AS "targetRole",s.id,s.name,s.category,rs.required_level AS "requiredLevel",COALESCE(ss.proficiency,0) AS "currentLevel",
   GREATEST(rs.required_level-COALESCE(ss.proficiency,0),0) AS "levelGap"
-  FROM student_profiles sp JOIN career_roles cr ON cr.id=sp.target_role_id JOIN role_skills rs ON rs.role_id=cr.id JOIN skills s ON s.id=rs.skill_id LEFT JOIN student_skills ss ON ss.student_id=sp.user_id AND ss.skill_id=s.id WHERE sp.user_id=$1 ORDER BY "levelGap" DESC,s.name`,
+  FROM student_profiles sp JOIN career_roles cr ON cr.id=sp.target_role_id JOIN role_skills rs ON rs.role_id=cr.id JOIN skills s ON s.id=rs.skill_id LEFT JOIN student_skills ss ON ss.student_id=sp.user_id AND ss.skill_id=s.id WHERE sp.user_id=$1 AND cr.is_active=true AND s.is_active=true ORDER BY "levelGap" DESC,s.name`,
     [req.user.id],
   );
   res.json({ gaps: result.rows });
@@ -84,7 +84,7 @@ learningRouter.get("/skills/gaps", async (req, res) => {
 learningRouter.get("/career/recommendations", aiLimit, async (req, res) => {
   requireStudent(req.user);
   const gaps = await query(
-    `SELECT cr.name AS role,s.name,COALESCE(ss.proficiency,0) AS level,rs.required_level AS required FROM student_profiles sp JOIN career_roles cr ON cr.id=sp.target_role_id JOIN role_skills rs ON rs.role_id=cr.id JOIN skills s ON s.id=rs.skill_id LEFT JOIN student_skills ss ON ss.student_id=sp.user_id AND ss.skill_id=s.id WHERE sp.user_id=$1`,
+    `SELECT cr.name AS role,s.name,COALESCE(ss.proficiency,0) AS level,rs.required_level AS required FROM student_profiles sp JOIN career_roles cr ON cr.id=sp.target_role_id JOIN role_skills rs ON rs.role_id=cr.id JOIN skills s ON s.id=rs.skill_id LEFT JOIN student_skills ss ON ss.student_id=sp.user_id AND ss.skill_id=s.id WHERE sp.user_id=$1 AND cr.is_active=true AND s.is_active=true`,
     [req.user.id],
   );
   const role = gaps.rows[0]?.role;
@@ -254,20 +254,30 @@ learningRouter.post("/coding/problems/:id/submissions", async (req, res) => {
   if (!answer || answer.length > 5000)
     throw new HttpError(400, "Answer must contain 1 to 5000 characters.");
   const problem = await query(
-    "SELECT expected_answer,explanation FROM coding_problems WHERE id=$1 AND is_active=true",
+    'SELECT expected_answer,explanation,problem_type AS "problemType",options_json AS options FROM coding_problems WHERE id=$1 AND is_active=true',
     [id],
   );
   if (!problem.rowCount) throw new HttpError(404, "Problem not found.");
-  const correct =
-    answer.toLowerCase().replace(/\s+/g, " ") ===
-    problem.rows[0].expected_answer.toLowerCase().replace(/\s+/g, " ");
+  const item = problem.rows[0];
+  let normalizedAnswer = answer;
+  let correct;
+  if (item.problemType === "multiple_choice") {
+    const optionIndex = Number(answer);
+    if (!Number.isInteger(optionIndex) || optionIndex < 0 || optionIndex >= item.options.length) {
+      throw new HttpError(400, "For multiple-choice problems, answer must be a valid zero-based option index.");
+    }
+    normalizedAnswer = String(optionIndex);
+    correct = optionIndex === Number(item.expected_answer);
+  } else {
+    correct = answer.toLowerCase().replace(/\s+/g, " ") === item.expected_answer.toLowerCase().replace(/\s+/g, " ");
+  }
   const result = await query(
     'INSERT INTO coding_submissions(student_id,problem_id,submitted_answer,is_correct) VALUES($1,$2,$3,$4) RETURNING id,is_correct AS correct,created_at AS "createdAt"',
-    [req.user.id, id, answer, correct],
+    [req.user.id, id, normalizedAnswer, correct],
   );
   res.status(201).json({
     submission: result.rows[0],
-    explanation: problem.rows[0].explanation,
+    explanation: item.explanation,
   });
 });
 learningRouter.get("/coding/submissions", async (req, res) => {
@@ -308,7 +318,7 @@ learningRouter.get("/aptitude/attempts/:id/questions", async (req, res) => {
     );
   if (!attempt.rowCount) throw new HttpError(404, "Active attempt not found.");
   const questions = await query(
-    'SELECT id,question_text AS question,options_json AS options,display_order AS "displayOrder" FROM aptitude_questions WHERE test_id=$1 ORDER BY display_order',
+    'SELECT id,question_text AS question,options_json AS options,display_order AS "displayOrder" FROM aptitude_questions WHERE test_id=$1 AND is_active=true ORDER BY display_order',
     [attempt.rows[0].test_id],
   );
   res.json({ questions: questions.rows });
@@ -330,7 +340,7 @@ learningRouter.post("/aptitude/attempts/:id/submit", async (req, res) => {
     if (!attempt.rowCount)
       throw new HttpError(404, "Active attempt not found.");
     const qs = await client.query(
-      "SELECT id,correct_option_index,explanation,jsonb_array_length(options_json) AS option_count FROM aptitude_questions WHERE test_id=$1",
+      "SELECT id,correct_option_index,explanation,jsonb_array_length(options_json) AS option_count FROM aptitude_questions WHERE test_id=$1 AND is_active=true",
       [attempt.rows[0].test_id],
     );
     const validQuestions = new Map(qs.rows.map((question) => [question.id, question]));

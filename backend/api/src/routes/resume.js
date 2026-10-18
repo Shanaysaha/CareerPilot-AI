@@ -11,7 +11,7 @@ import {
   getAIProvider,
 } from "../services/aiClient.js";
 import { requireStudent } from "../services/student.js";
-import { resumeUpload } from "../services/uploads.js";
+import { getStoredResumeFile, removeStoredFile, resumeUpload } from "../services/uploads.js";
 import { recordAudit } from "../services/audit.js";
 
 export const resumeRouter = Router();
@@ -169,10 +169,33 @@ resumeRouter.post(
     const title = text(request.body.title || "Uploaded Resume", "Title", {
       max: 160,
     });
-    const saved = await saveVersion(request.user.id, {
-      title,
-      file: request.file,
-    });
+    const handle = await fs.open(request.file.path, "r");
+    const signature = Buffer.alloc(4);
+    try {
+      await handle.read(signature, 0, signature.length, 0);
+    } finally {
+      await handle.close();
+    }
+    const extension = request.file.originalname.toLowerCase().split(".").pop();
+    const validSignature = extension === "pdf"
+      ? signature.subarray(0, 4).toString("ascii") === "%PDF"
+      : extension === "docx" && signature[0] === 0x50 && signature[1] === 0x4b;
+    if (!validSignature) {
+      await removeStoredFile(request.file.path);
+      throw new HttpError(400, "The file content does not match a valid PDF or DOCX upload.");
+    }
+    let saved;
+    try {
+      saved = await saveVersion(request.user.id, {
+        title,
+        file: request.file,
+      });
+    } catch (error) {
+      await removeStoredFile(request.file.path).catch((cleanupError) => {
+        console.error("Resume upload cleanup failed:", cleanupError.message);
+      });
+      throw error;
+    }
     await recordAudit(
       request.user.id,
       "resume.uploaded",
@@ -222,4 +245,50 @@ resumeRouter.get("/me/versions", async (request, response) => {
     [request.user.id],
   );
   response.json({ versions: result.rows });
+});
+
+resumeRouter.get("/me/versions/:id/file", async (request, response, next) => {
+  const versionId = uuid(request.params.id, "Resume version ID");
+  const result = await query(
+    `SELECT v.stored_path,v.original_filename,r.student_id FROM resume_versions v JOIN resumes r ON r.id=v.resume_id WHERE v.id=$1`,
+    [versionId],
+  );
+  if (!result.rowCount || result.rows[0].student_id !== request.user.id) {
+    throw new HttpError(404, "Resume file not found.");
+  }
+  if (!result.rows[0].stored_path) throw new HttpError(404, "This resume version was created in the builder and has no uploaded file.");
+  let filePath;
+  try {
+    filePath = await getStoredResumeFile(result.rows[0].stored_path);
+  } catch {
+    throw new HttpError(404, "The stored resume file is no longer available.");
+  }
+  const filename = result.rows[0].original_filename || "resume";
+  response.download(filePath, filename, (error) => {
+    if (error && !response.headersSent) next(new HttpError(404, "The resume file could not be downloaded."));
+  });
+});
+
+resumeRouter.delete("/me/versions/:id", async (request, response) => {
+  const versionId = uuid(request.params.id, "Resume version ID");
+  const found = await query(`SELECT v.id,v.resume_id,v.stored_path,r.student_id FROM resume_versions v JOIN resumes r ON r.id=v.resume_id WHERE v.id=$1`, [versionId]);
+  if (!found.rowCount || found.rows[0].student_id !== request.user.id) throw new HttpError(404, "Resume version not found.");
+  const version = found.rows[0];
+  await withTransaction(async (client) => {
+    await client.query("DELETE FROM resume_versions WHERE id=$1", [versionId]);
+    const remaining = await client.query("SELECT id FROM resume_versions WHERE resume_id=$1 ORDER BY version_number DESC LIMIT 1", [version.resume_id]);
+    if (remaining.rowCount) {
+      await client.query("UPDATE resume_versions SET is_current=false WHERE resume_id=$1", [version.resume_id]);
+      await client.query("UPDATE resume_versions SET is_current=true WHERE id=$1", [remaining.rows[0].id]);
+    } else {
+      await client.query("DELETE FROM resumes WHERE id=$1", [version.resume_id]);
+    }
+  });
+  let fileCleanupPending = false;
+  try { await removeStoredFile(version.stored_path); } catch (error) {
+    fileCleanupPending = true;
+    console.error("Resume file cleanup failed:", error.message);
+  }
+  await recordAudit(request.user.id, "resume.version_deleted", "resume_version", versionId);
+  response.json({ deleted: true, fileCleanupPending });
 });

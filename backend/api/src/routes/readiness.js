@@ -4,6 +4,7 @@ import { authenticate } from "../middleware/auth.js";
 import { HttpError } from "../middleware/errors.js";
 import { uuid } from "../middleware/validate.js";
 import { requireStudent } from "../services/student.js";
+import { calculateReadiness } from "../services/readinessScore.js";
 
 export const readinessRouter = Router();
 readinessRouter.use(authenticate);
@@ -13,7 +14,7 @@ readinessRouter.get("/me", async (req, res) => {
     `SELECT
   (SELECT score FROM resume_analyses ra JOIN resume_versions rv ON rv.id=ra.resume_version_id JOIN resumes r ON r.id=rv.resume_id WHERE r.student_id=$1 AND ra.status='completed' ORDER BY ra.created_at DESC LIMIT 1) AS resume,
   (SELECT score FROM interview_sessions WHERE student_id=$1 AND status='completed' ORDER BY completed_at DESC LIMIT 1) AS interview,
-  (SELECT round(avg(CASE WHEN is_correct THEN 100 ELSE 0 END))::int FROM coding_submissions WHERE student_id=$1) AS coding,
+      (SELECT round(avg(best_score))::int FROM (SELECT max(CASE WHEN is_correct THEN 100 ELSE 0 END) AS best_score FROM coding_submissions WHERE student_id=$1 GROUP BY problem_id) best_per_problem) AS coding,
   (SELECT score FROM aptitude_attempts WHERE student_id=$1 AND status='completed' ORDER BY completed_at DESC LIMIT 1) AS aptitude,
   (SELECT count(*) FROM student_skills WHERE student_id=$1) AS skill_count`,
     [req.user.id],
@@ -43,17 +44,9 @@ readinessRouter.get("/me", async (req, res) => {
     coding: raw.coding,
     aptitude: raw.aptitude,
   };
-  const count = Object.values(parts).filter((v) => v !== null).length;
   const required = Number(minimum.count || 3);
-  const score =
-    count >= required
-      ? Math.round(
-          Object.entries(parts).reduce(
-            (sum, [k, v]) => sum + (v ?? 0) * Number(weights[k] || 0),
-            0,
-          ),
-        )
-      : null;
+  const readiness = calculateReadiness(parts, weights, required);
+  const { score, evidenceCount: count, availableWeight } = readiness;
   const result = await query(
     `INSERT INTO readiness_snapshots(student_id,formula_version,total_score,breakdown_json,is_complete) VALUES($1,$2,$3,$4::jsonb,$5) RETURNING calculated_at AS "calculatedAt"`,
     [
@@ -65,6 +58,7 @@ readinessRouter.get("/me", async (req, res) => {
         evidenceCount: count,
         requiredEvidence: required,
         weights,
+        availableWeight,
       }),
       score !== null,
     ],
@@ -94,7 +88,7 @@ dashboardRouter.get("/student", async (req, res) => {
       [req.user.id],
     ),
     query(
-      `SELECT n.id,n.title,n.body,n.published_at AS "publishedAt",nd.is_read AS "isRead" FROM notification_deliveries nd JOIN notifications n ON n.id=nd.notification_id WHERE nd.student_id=$1 AND n.archived_at IS NULL ORDER BY n.published_at DESC LIMIT 5`,
+      `SELECT n.id,n.title,n.body,n.published_at AS "publishedAt",nd.is_read AS "isRead" FROM notification_deliveries nd JOIN notifications n ON n.id=nd.notification_id WHERE nd.student_id=$1 AND n.is_published=true AND n.archived_at IS NULL ORDER BY n.published_at DESC LIMIT 5`,
       [req.user.id],
     ),
     query(
@@ -114,7 +108,7 @@ export const notificationRouter = Router();
 notificationRouter.use(authenticate);
 notificationRouter.get("/", async (req, res) => {
   const result = await query(
-    `SELECT n.id,n.title,n.body,n.published_at AS "publishedAt",nd.is_read AS "isRead" FROM notification_deliveries nd JOIN notifications n ON n.id=nd.notification_id WHERE nd.student_id=$1 AND n.archived_at IS NULL ORDER BY n.published_at DESC`,
+    `SELECT n.id,n.title,n.body,n.published_at AS "publishedAt",nd.is_read AS "isRead" FROM notification_deliveries nd JOIN notifications n ON n.id=nd.notification_id WHERE nd.student_id=$1 AND n.is_published=true AND n.archived_at IS NULL ORDER BY n.published_at DESC`,
     [req.user.id],
   );
   res.json({ notifications: result.rows });
