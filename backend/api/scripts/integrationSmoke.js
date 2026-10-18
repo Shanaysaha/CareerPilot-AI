@@ -36,12 +36,19 @@ const resetPassword = `Reset-${randomUUID()}-Pass!`;
 const studentEmail = `student-${randomUUID()}@example.test`;
 const laterStudentEmail = `student-${randomUUID()}@example.test`;
 const cohortName = `Integration ${randomUUID()}`;
+const otherCohortName = `Out of scope ${randomUUID()}`;
+const officerEmail = `officer-${randomUUID()}@example.test`;
+const officerPassword = `Officer-${randomUUID()}-Pass!`;
 let adminToken;
+let officerToken;
 let studentToken;
 let laterStudentToken;
 let resetStudentToken;
 let cohortId;
+let otherCohortId;
+let officerId;
 let noticeId;
+let officerNoticeId;
 let codingProblemId;
 let studentId;
 let laterStudentId;
@@ -63,10 +70,36 @@ try {
     body: { name: cohortName },
   });
   cohortId = cohort.data.cohort.id;
+  const otherCohort = await request("POST", "/api/officer/cohorts", {
+    token: adminToken,
+    body: { name: otherCohortName },
+  });
+  otherCohortId = otherCohort.data.cohort.id;
   await request("PATCH", `/api/officer/cohorts/${cohortId}`, {
     token: adminToken,
     body: { isActive: false },
   });
+
+  const officer = await request("POST", "/api/officer/users", {
+    token: adminToken,
+    body: { fullName: "Integration Officer", email: officerEmail, role: "placement_officer", temporaryPassword: officerPassword },
+    expectedStatus: 201,
+  });
+  officerId = officer.data.user.id;
+  await request("POST", `/api/officer/officers/${officerId}/cohorts`, {
+    token: adminToken,
+    body: { cohortId },
+  });
+  const officerLogin = await request("POST", "/api/auth/login", {
+    body: { email: officerEmail, password: officerPassword },
+  });
+  officerToken = officerLogin.data.accessToken;
+  assert.equal(officerLogin.data.user.role, "placement_officer");
+  const officerCohorts = await request("GET", "/api/officer/cohorts", { token: officerToken });
+  assert.ok(officerCohorts.data.cohorts.some((item) => item.id === cohortId));
+  assert.equal(officerCohorts.data.cohorts.some((item) => item.id === otherCohortId), false);
+  await request("GET", `/api/officer/cohorts/${otherCohortId}/students`, { token: officerToken, expectedStatus: 403 });
+  await request("GET", "/api/admin/audit", { token: officerToken, expectedStatus: 403 });
   await request("PATCH", `/api/officer/cohorts/${cohortId}`, {
     token: adminToken,
     body: { isActive: true },
@@ -169,8 +202,27 @@ try {
     token: adminToken,
     body: { cohortId },
   });
+  const officerStudents = await request("GET", `/api/officer/cohorts/${cohortId}/students`, { token: officerToken });
+  assert.ok(officerStudents.data.students.some((item) => item.id === laterStudentId));
+  const officerDashboard = await request("GET", "/api/officer/dashboard", { token: officerToken });
+  assert.ok(officerDashboard.data.cohorts.some((item) => item.cohortId === cohortId));
+  assert.equal(officerDashboard.data.cohorts.some((item) => item.cohortId === otherCohortId), false);
+  await request("GET", `/api/officer/reports/summary?cohortId=${cohortId}`, { token: officerToken });
+  await request("GET", "/api/officer/notifications", { token: officerToken });
+  await request("GET", `/api/officer/reports/summary?cohortId=${otherCohortId}`, { token: officerToken, expectedStatus: 403 });
+  await request("POST", "/api/officer/notifications", {
+    token: officerToken,
+    body: { title: "Officer cohort notice", body: "Officer assigned-cohort publishing smoke test.", cohortId },
+    expectedStatus: 201,
+  }).then(({ data }) => { officerNoticeId = data.notification.id; });
+  await request("POST", "/api/officer/notifications", {
+    token: officerToken,
+    body: { title: "Unauthorized global notice", body: "Should be rejected." },
+    expectedStatus: 403,
+  });
   const notifications = await request("GET", "/api/notifications", { token: laterStudentToken });
   assert.equal(notifications.data.notifications.some((item) => item.id === noticeId), true);
+  assert.equal(notifications.data.notifications.some((item) => item.id === officerNoticeId), true);
 
   const readiness = await request("GET", "/api/readiness/me", { token: studentToken });
   assert.equal(readiness.data.complete, true);
@@ -198,7 +250,7 @@ try {
   await request("DELETE", "/api/auth/account", { token: laterStudentToken, body: { password: studentPassword } });
   deletedLaterStudent = true;
 
-  console.log("Integration smoke test passed: database, auth/reset/revocation, profiles/skills, resume lifecycle, interview, coding MCQ, aptitude, readiness, cohort notices, and account deletion.");
+  console.log("Integration smoke test passed: database, student and placement-officer auth, officer cohort access controls, officer dashboard/reports/notices, auth/reset/revocation, profiles/skills, resume lifecycle, interview, coding MCQ, aptitude, readiness, notifications, and account deletion.");
 } finally {
   try {
     if (!deletedStudent && resetStudentToken) {
@@ -212,8 +264,17 @@ try {
       await request("DELETE", "/api/auth/account", { token: laterStudentToken, body: { password: studentPassword } });
     }
   } catch {}
+  if (officerId && adminToken) {
+    await request("PATCH", `/api/officer/users/${officerId}/status`, {
+      token: adminToken,
+      body: { status: "disabled" },
+    }).catch(() => {});
+  }
+  if (officerNoticeId) await pool.query("DELETE FROM notifications WHERE id=$1", [officerNoticeId]);
   if (noticeId) await pool.query("DELETE FROM notifications WHERE id=$1", [noticeId]);
+  if (officerId) await pool.query("DELETE FROM users WHERE id=$1", [officerId]);
   if (cohortId) await pool.query("DELETE FROM cohorts WHERE id=$1", [cohortId]);
+  if (otherCohortId) await pool.query("DELETE FROM cohorts WHERE id=$1", [otherCohortId]);
   if (codingProblemId) await pool.query("DELETE FROM coding_problems WHERE id=$1", [codingProblemId]);
   await unlink(docxFixture).catch(() => {});
   await pool.end();
