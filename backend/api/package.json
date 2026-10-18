@@ -1,0 +1,23 @@
+{
+  "name": "careerpilot-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Beginner-friendly Express API for CareerPilot AI",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "db:migrate": "node src/db/migrate.js",
+    "db:seed": "node src/db/seed.js",
+    "admin:create": "node src/db/createAdmin.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^16.6.1",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "pg": "^8.16.3"
+  }
+}

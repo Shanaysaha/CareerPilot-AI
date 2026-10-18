@@ -2,6 +2,7 @@ node_modules/
 .env
 .env.*
 !.env.example
+!**/.env.example
 .venv/
 venv/
 __pycache__/
@@ -11,3 +12,4 @@ __pycache__/
 coverage/
 dist/
 build/
+backend/api/uploads/
