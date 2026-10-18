@@ -50,6 +50,7 @@ No frontend files are included here. The API runs locally on port `4000`; the pr
    .\.venv\Scripts\Activate.ps1
    pip install -r requirements.txt
    Copy-Item .env.example .env
+   python -m unittest discover -s tests
    ```
 
    `AI_PROVIDER=mock` is the default and needs no provider key. Set `AI_SERVICE_API_KEY` in both `ai-service\.env` and `api\.env` to the same private random value. To use OpenAI or Gemini, select the provider, add that provider's key, and keep the API service key private. The API binds to localhost by default; set `HOST=0.0.0.0` only when deploying behind a firewall or reverse proxy.
@@ -102,6 +103,18 @@ All paths are under `/api` unless shown otherwise. Protected routes require a Be
 
 The readiness formula is versioned and seeded as `v1`: resume 25%, skills 25%, interview 20%, coding 15%, aptitude 15%. A score is marked complete after three evidence categories are available. It is a guidance indicator, not a hiring prediction.
 
+## Integration checks
+
+With PostgreSQL, the API, and the AI service running, run the API unit tests with `npm test` from `backend\api`. To exercise the database-backed HTTP workflows, first create a temporary administrator using the `admin:create` steps above, set `TEST_ADMIN_EMAIL` and `TEST_ADMIN_PASSWORD` in that terminal, then run `npm run test:integration`. The integration check creates uniquely named test records and removes its students, notice, cohort, and coding question afterward.
+
+On the original development laptop, PostgreSQL 16 is kept in the ignored `D:\Major Project\.local\postgresql` directory and listens on `127.0.0.1:5432`. Start it after a reboot with:
+
+```powershell
+& "D:\Major Project\.local\postgresql\pgsql\bin\pg_ctl.exe" -D "D:\Major Project\.local\postgresql\data2" -l "D:\Major Project\.local\postgresql\postgres.log" -o "-h 127.0.0.1 -p 5432" start
+```
+
+That local cluster is for development and testing on this laptop. It is excluded from Git and is not available to teammates cloning the repo; they should use their own PostgreSQL instance and follow the first-time setup above.
+
 ## Role and scope rules
 
 - Students can only read and change their own profile, resume, skill list, assessments and progress.
@@ -122,8 +135,9 @@ The readiness formula is versioned and seeded as `v1`: resume 25%, skills 25%, i
 - PostgreSQL is required; there is no in-memory database fallback.
 - Seed content is educational starter data and should be reviewed before a real institution uses it.
 - The simple in-memory login limiter is for a single local development process.
-- The Python AI code compiles, but its dependencies are not installed in this workspace; install `requirements.txt` in the documented virtual environment before running it. AI provider responses are schema-checked and bounded before being returned.
-- The API unit tests cover readiness evidence weighting. PostgreSQL migrations and end-to-end flows still need to be run against a configured PostgreSQL instance.
+- The Python dependencies are pinned in `requirements.txt`; install them in the documented virtual environment on each machine. AI provider responses are schema-checked and bounded before being returned.
+- The API unit tests cover readiness evidence weighting. The database migrations, idempotent seed, and database-backed integration smoke test have been run against the local PostgreSQL 16 instance.
+- The AI service includes standard-library unit tests for provider response validation and mock analysis; they pass in the local virtual environment.
 - Scanned image-only PDFs do not have OCR in the approved stack; use a text-based PDF or DOCX for resume analysis.
 - Use HTTPS, secure secret storage, backups, access reviews, retention rules and deployment-specific CORS before hosting real student data.
 - Do not commit `.env` files, database dumps, uploaded resumes, provider keys or real student information.

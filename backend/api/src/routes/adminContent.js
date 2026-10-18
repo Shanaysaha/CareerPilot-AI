@@ -136,12 +136,14 @@ adminContentRouter.patch("/catalog/interview-questions/:id", async (req, res) =>
 });
 
 adminContentRouter.post("/catalog/coding-problems", async (req, res) => {
-  const title = text(req.body.title, "Title", { max: 200 }), prompt = text(req.body.prompt, "Prompt", { max: 5000 }), expected = text(req.body.expectedAnswer, "Expected answer", { max: 5000 }), explanation = text(req.body.explanation || "", "Explanation", { max: 3000, optional: true });
+  const title = text(req.body.title, "Title", { max: 200 }), prompt = text(req.body.prompt, "Prompt", { max: 5000 }), explanation = text(req.body.explanation || "", "Explanation", { max: 3000, optional: true });
   const difficulty = text(req.body.difficulty || "beginner", "Difficulty", { max: 40 }), problemType = req.body.problemType || "short_answer";
   if (!["short_answer", "multiple_choice"].includes(problemType)) throw new HttpError(400, "Problem type is invalid.");
   const options = problemType === "multiple_choice" ? stringList(req.body.options, "Options", { min: 2, max: 8, itemMax: 300 }) : [];
   if (problemType === "multiple_choice") integer(req.body.correctOptionIndex, "Correct option", { min: 0, max: options.length - 1 });
-  const expectedAnswer = problemType === "multiple_choice" ? String(req.body.correctOptionIndex) : expected;
+  const expectedAnswer = problemType === "multiple_choice"
+    ? String(req.body.correctOptionIndex)
+    : text(req.body.expectedAnswer, "Expected answer", { max: 5000 });
   const result = await query(`INSERT INTO coding_problems(title,prompt,difficulty,problem_type,options_json,expected_answer,explanation) VALUES($1,$2,$3,$4,$5::jsonb,$6,$7) RETURNING id,title,prompt,difficulty,problem_type AS "problemType",options_json AS options,is_active AS "isActive"`, [title, prompt, difficulty, problemType, JSON.stringify(options), expectedAnswer, explanation]);
   await recordAudit(req.user.id, "catalog.coding_problem_created", "coding_problem", result.rows[0].id);
   res.status(201).json({ problem: result.rows[0] });

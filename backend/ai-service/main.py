@@ -39,7 +39,9 @@ def clean_string_list(value, field: str, limit: int, item_limit: int = 300) -> l
     """Validate and bound lists returned by an external AI provider."""
     if not isinstance(value, list):
         raise HTTPException(status_code=502, detail=f"AI response field {field} must be a list")
-    return [item.strip()[:item_limit] for item in value[:limit] if isinstance(item, str) and item.strip()]
+    if len(value) > limit or any(not isinstance(item, str) for item in value):
+        raise HTTPException(status_code=502, detail=f"AI response field {field} contains invalid items")
+    return [item.strip()[:item_limit] for item in value if item.strip()]
 
 
 def clean_score(value) -> int:

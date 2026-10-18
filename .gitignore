@@ -13,3 +13,4 @@ coverage/
 dist/
 build/
 backend/api/uploads/
+.local/

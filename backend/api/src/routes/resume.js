@@ -1,5 +1,6 @@
 import { Router } from "express";
 import fs from "node:fs";
+import fsPromises from "node:fs/promises";
 import { query, withTransaction } from "../db/pool.js";
 import { authenticate } from "../middleware/auth.js";
 import { rateLimit } from "../middleware/rateLimit.js";
@@ -169,23 +170,22 @@ resumeRouter.post(
     const title = text(request.body.title || "Uploaded Resume", "Title", {
       max: 160,
     });
-    const handle = await fs.open(request.file.path, "r");
-    const signature = Buffer.alloc(4);
-    try {
-      await handle.read(signature, 0, signature.length, 0);
-    } finally {
-      await handle.close();
-    }
-    const extension = request.file.originalname.toLowerCase().split(".").pop();
-    const validSignature = extension === "pdf"
-      ? signature.subarray(0, 4).toString("ascii") === "%PDF"
-      : extension === "docx" && signature[0] === 0x50 && signature[1] === 0x4b;
-    if (!validSignature) {
-      await removeStoredFile(request.file.path);
-      throw new HttpError(400, "The file content does not match a valid PDF or DOCX upload.");
-    }
     let saved;
     try {
+      const handle = await fsPromises.open(request.file.path, "r");
+      const signature = Buffer.alloc(4);
+      try {
+        await handle.read(signature, 0, signature.length, 0);
+      } finally {
+        await handle.close();
+      }
+      const extension = request.file.originalname.toLowerCase().split(".").pop();
+      const validSignature = extension === "pdf"
+        ? signature.subarray(0, 4).toString("ascii") === "%PDF"
+        : extension === "docx" && signature[0] === 0x50 && signature[1] === 0x4b;
+      if (!validSignature) {
+        throw new HttpError(400, "The file content does not match a valid PDF or DOCX upload.");
+      }
       saved = await saveVersion(request.user.id, {
         title,
         file: request.file,
