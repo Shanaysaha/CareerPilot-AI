@@ -17,6 +17,7 @@ export const app = express();
 const allowedOrigins = new Set(env.corsOrigins);
 
 app.disable("x-powered-by");
+// Apply browser security headers and answer CORS preflight requests.
 app.use((request, response, next) => {
   response.setHeader("X-Content-Type-Options", "nosniff");
   response.setHeader("X-Frame-Options", "DENY");
@@ -40,6 +41,7 @@ app.use((request, response, next) => {
 app.use(express.json({ limit: "2mb" }));
 
 app.get("/api/health", async (request, response, next) => {
+  // Check the database as well as the API process before reporting healthy.
   try {
     const { query } = await import("./db/pool.js");
     await query("SELECT 1");
@@ -49,6 +51,7 @@ app.get("/api/health", async (request, response, next) => {
   }
 });
 
+// Mount each feature router under its shared API prefix.
 app.use("/api/auth", authRouter);
 app.use("/api/profile", profileRouter);
 app.use("/api/resume", resumeRouter);
@@ -60,6 +63,7 @@ app.use("/api/admin", adminRouter);
 app.use("/api/admin", adminContentRouter);
 app.use("/api", learningRouter);
 
+// Return a consistent JSON 404 for paths that no router handles.
 app.use((request, response, next) =>
   next(new HttpError(404, "This API route does not exist.")),
 );

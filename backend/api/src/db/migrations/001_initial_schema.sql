@@ -1,4 +1,5 @@
 -- Main CareerPilot schema. IDs use PostgreSQL's built-in UUID generator.
+-- Accounts, student profiles, cohort assignments, and revocable login sessions.
 CREATE TABLE cohorts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
@@ -54,6 +55,7 @@ CREATE TABLE auth_sessions (
 );
 CREATE INDEX auth_sessions_user_idx ON auth_sessions(user_id);
 
+-- Resume versions and their stored analysis results.
 CREATE TABLE resumes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id uuid NOT NULL UNIQUE REFERENCES student_profiles(user_id) ON DELETE CASCADE,
@@ -90,6 +92,7 @@ CREATE TABLE resume_analyses (
 );
 CREATE INDEX resume_analyses_version_idx ON resume_analyses(resume_version_id, created_at DESC);
 
+-- Skill catalog, student proficiency, and skills required for each career role.
 CREATE TABLE skills (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL UNIQUE,
@@ -133,6 +136,7 @@ CREATE TABLE student_resource_progress (
   PRIMARY KEY (student_id, resource_id)
 );
 
+-- Interview, coding-quiz, and aptitude practice content and student attempts.
 CREATE TABLE interview_questions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   question_text text NOT NULL,
@@ -223,6 +227,7 @@ CREATE TABLE aptitude_answers (
   PRIMARY KEY (attempt_id, question_id)
 );
 
+-- Versioned readiness calculations, student notices, and administrator audit history.
 CREATE TABLE readiness_formulas (
   version text PRIMARY KEY,
   weights_json jsonb NOT NULL,

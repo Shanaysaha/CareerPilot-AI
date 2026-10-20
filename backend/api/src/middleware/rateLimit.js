@@ -3,6 +3,7 @@ const windows = new Map();
 // Small per-process limiter for login and AI endpoints. A production deployment
 // with multiple API servers should move this counter to shared infrastructure.
 export function rateLimit({ limit = 10, windowMs = 60_000 } = {}) {
+  // Count requests per IP and route during a short window, then return HTTP 429.
   return (request, response, next) => {
     const route = request.route?.path || request.path;
     const key = `${request.ip}:${request.method}:${request.baseUrl}${route}`;

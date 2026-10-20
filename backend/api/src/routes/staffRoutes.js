@@ -13,6 +13,7 @@ staffRouter.use(
   requireRole("placement_officer", "administrator"),
 );
 async function ensureCohortAccess(user, cohortId) {
+  // Administrators see all cohorts; officers must have an explicit assignment.
   if (user.role === "administrator") return;
   const allowed = await query(
     "SELECT 1 FROM officer_cohorts WHERE officer_id=$1 AND cohort_id=$2",
@@ -21,6 +22,7 @@ async function ensureCohortAccess(user, cohortId) {
   if (!allowed.rowCount)
     throw new HttpError(403, "This cohort is outside your assignment.");
 }
+// Staff reporting routes scope placement officers to their assigned cohorts.
 staffRouter.get("/dashboard", async (req, res) => {
   const values = [];
   let scope = "";
@@ -40,6 +42,7 @@ staffRouter.get("/dashboard", async (req, res) => {
   );
   res.json({ cohorts: result.rows });
 });
+// Return student placement summaries only after checking cohort access.
 staffRouter.get("/cohorts/:id/students", async (req, res) => {
   const id = uuid(req.params.id, "Cohort ID");
   await ensureCohortAccess(req.user, id);
@@ -49,12 +52,14 @@ staffRouter.get("/cohorts/:id/students", async (req, res) => {
   );
   res.json({ students: result.rows });
 });
+// List all cohorts for administrators and assigned cohorts for officers.
 staffRouter.get("/cohorts", async (req, res) => {
   const result = req.user.role === "administrator"
     ? await query(`SELECT id,name,academic_year AS "academicYear",is_active AS "isActive",created_at AS "createdAt" FROM cohorts ORDER BY name,academic_year`)
     : await query(`SELECT c.id,c.name,c.academic_year AS "academicYear",c.is_active AS "isActive",c.created_at AS "createdAt" FROM cohorts c JOIN officer_cohorts oc ON oc.cohort_id=c.id WHERE oc.officer_id=$1 ORDER BY c.name,c.academic_year`, [req.user.id]);
   res.json({ cohorts: result.rows });
 });
+// Administrator-only cohort management and officer assignment routes.
 staffRouter.patch("/cohorts/:id", requireRole("administrator"), async (req, res) => {
   const id = uuid(req.params.id, "Cohort ID");
   const current = await query("SELECT name,academic_year FROM cohorts WHERE id=$1", [id]);
@@ -94,6 +99,7 @@ staffRouter.patch("/students/:id/cohort", requireRole("administrator"), async (r
   });
   res.json({ student: result });
 });
+// Summarize readiness and resume coverage within the caller's allowed scope.
 staffRouter.get("/reports/summary", async (req, res) => {
   const cohortId = req.query.cohortId
     ? uuid(req.query.cohortId, "Cohort ID")
@@ -105,6 +111,7 @@ staffRouter.get("/reports/summary", async (req, res) => {
   );
   res.json({ summary: result.rows[0] });
 });
+// Staff notification routes list, publish, update, and archive notices.
 staffRouter.get("/notifications", async (req, res) => {
   const result = req.user.role === "administrator"
     ? await query(`SELECT n.id,n.title,n.body,n.is_published AS "isPublished",n.published_at AS "publishedAt",n.archived_at AS "archivedAt",n.cohort_id AS "cohortId",c.name AS cohort FROM notifications n LEFT JOIN cohorts c ON c.id=n.cohort_id ORDER BY n.created_at DESC`)
@@ -112,6 +119,7 @@ staffRouter.get("/notifications", async (req, res) => {
   res.json({ notifications: result.rows });
 });
 staffRouter.post("/notifications", async (req, res) => {
+  // Officers may publish only to assigned cohorts; only administrators may publish globally.
   const title = text(req.body.title, "Title", { max: 160 }),
     body = text(req.body.body, "Message", { max: 5000 }),
     cohortId = req.body.cohortId ? uuid(req.body.cohortId, "Cohort ID") : null;
@@ -289,6 +297,7 @@ staffRouter.patch(
 
 export const adminRouter = Router();
 adminRouter.use(authenticate, requireRole("administrator"));
+// Administrator-only audit log for tracking important account and content changes.
 adminRouter.get("/audit", async (req, res) => {
   const requested = Number(req.query.limit) || 100;
   const limit = Math.max(1, Math.min(requested, 500));

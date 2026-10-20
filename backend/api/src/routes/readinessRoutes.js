@@ -8,6 +8,7 @@ import { calculateReadiness } from "../services/readinessScore.js";
 
 export const readinessRouter = Router();
 readinessRouter.use(authenticate);
+// Combine the student's latest resume, skills, interview, coding, and aptitude evidence.
 readinessRouter.get("/me", async (req, res) => {
   requireStudent(req.user);
   const evidence = await query(
@@ -76,6 +77,7 @@ readinessRouter.get("/me", async (req, res) => {
 
 export const dashboardRouter = Router();
 dashboardRouter.use(authenticate);
+// Build the student's dashboard summary from profile, progress, and notices.
 dashboardRouter.get("/student", async (req, res) => {
   requireStudent(req.user);
   const [profile, stats, notifications, ready] = await Promise.all([
@@ -106,6 +108,7 @@ dashboardRouter.get("/student", async (req, res) => {
 
 export const notificationRouter = Router();
 notificationRouter.use(authenticate);
+// List notifications delivered to this signed-in student.
 notificationRouter.get("/", async (req, res) => {
   const result = await query(
     `SELECT n.id,n.title,n.body,n.published_at AS "publishedAt",nd.is_read AS "isRead" FROM notification_deliveries nd JOIN notifications n ON n.id=nd.notification_id WHERE nd.student_id=$1 AND n.is_published=true AND n.archived_at IS NULL ORDER BY n.published_at DESC`,
@@ -113,6 +116,7 @@ notificationRouter.get("/", async (req, res) => {
   );
   res.json({ notifications: result.rows });
 });
+// Mark one of the student's delivered notifications as read.
 notificationRouter.patch("/:id/read", async (req, res) => {
   const id = uuid(req.params.id, "Notification ID");
   const result = await query(

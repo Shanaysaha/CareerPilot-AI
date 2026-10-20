@@ -8,6 +8,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const migrationFolder = path.join(here, "migrations");
 
 async function migrate() {
+  // Apply each numbered SQL migration once and record it in schema_migrations.
   validateEnvironment();
   await pool.query(`
     CREATE TABLE IF NOT EXISTS schema_migrations (

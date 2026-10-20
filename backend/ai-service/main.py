@@ -45,28 +45,33 @@ def clean_string_list(value, field: str, limit: int, item_limit: int = 300) -> l
 
 
 def clean_score(value) -> int:
+    """Reject provider scores outside the 0 to 100 range."""
     if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= value <= 100:
         raise HTTPException(status_code=502, detail="AI response score must be a number from 0 to 100")
     return round(value)
 
 
 def clean_text(value, field: str, limit: int) -> str:
+    """Require a text field and cap its length before returning it to the API."""
     if not isinstance(value, str):
         raise HTTPException(status_code=502, detail=f"AI response field {field} must be text")
     return value.strip()[:limit]
 
 
 class ResumeRequest(BaseModel):
+    """Validated request body for resume-text analysis."""
     resume_text: str = Field(min_length=30, max_length=30000)
     target_role: str = Field(default="", max_length=120)
 
 
 class InterviewRequest(BaseModel):
+    """Validated question and answer sent for interview practice feedback."""
     question: str = Field(min_length=3, max_length=2000)
     answer: str = Field(min_length=1, max_length=10000)
 
 
 class CareerRequest(BaseModel):
+    """Validated role and skill information used for career recommendations."""
     target_role: str = Field(min_length=2, max_length=120)
     current_skills: list[str] = Field(default_factory=list, max_length=50)
     missing_skills: list[str] = Field(default_factory=list, max_length=50)
@@ -173,6 +178,7 @@ def resume_text_from_file(filename: str, content: bytes) -> str:
 
 
 def make_resume_analysis(resume_text: str, target_role: str = "") -> dict:
+    """Analyze resume text with either the local mock or the configured AI provider."""
     if PROVIDER == "mock":
         lower = resume_text.lower()
         known = ["python", "sql", "javascript", "react", "java", "postgresql", "communication", "data structures"]
@@ -222,16 +228,19 @@ def make_resume_analysis(resume_text: str, target_role: str = "") -> dict:
 
 @app.get("/health")
 def health():
+    """Report that the AI service is running and identify its configured provider."""
     return {"status": "ok", "provider": PROVIDER}
 
 
 @app.post("/v1/resume/analyze", dependencies=[Depends(check_internal_key)])
 def analyze_resume(request: ResumeRequest):
+    """Analyze resume text posted by the main Express API."""
     return make_resume_analysis(request.resume_text, request.target_role)
 
 
 @app.post("/v1/resume/analyze-file", dependencies=[Depends(check_internal_key)])
 async def analyze_resume_file(file: UploadFile = File(...), target_role: str = ""):
+    """Read a bounded PDF/DOCX upload, extract text, and return its analysis."""
     content = await file.read(MAX_FILE_BYTES + 1)
     await file.close()
     if len(content) > MAX_FILE_BYTES:
@@ -242,6 +251,7 @@ async def analyze_resume_file(file: UploadFile = File(...), target_role: str = "
 
 @app.post("/v1/interview/feedback", dependencies=[Depends(check_internal_key)])
 def interview_feedback(request: InterviewRequest):
+    """Score a practice answer and return strengths and improvement ideas."""
     if PROVIDER == "mock":
         word_count = len(request.answer.split())
         score = min(90, max(35, 35 + word_count))
@@ -269,6 +279,7 @@ def interview_feedback(request: InterviewRequest):
 
 @app.post("/v1/career/recommendations", dependencies=[Depends(check_internal_key)])
 def career_recommendations(request: CareerRequest):
+    """Suggest learning priorities based only on the supplied role and skill gaps."""
     if PROVIDER == "mock":
         return {
             "targetRole": request.target_role,

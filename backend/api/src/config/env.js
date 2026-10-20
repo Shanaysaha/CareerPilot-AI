@@ -25,6 +25,7 @@ export const env = {
 };
 
 export function validateEnvironment() {
+  // Fail early so the server never starts with incomplete security or DB settings.
   const missing = [];
   if (!env.databaseUrl) missing.push("DATABASE_URL");
   if (env.aiServiceApiKey.length < 32 || /change|replace|example/i.test(env.aiServiceApiKey)) {

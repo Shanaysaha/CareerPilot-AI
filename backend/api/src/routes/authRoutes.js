@@ -15,6 +15,7 @@ const loginLimit = rateLimit({ limit: 8, windowMs: 60_000 });
 const resetLimit = rateLimit({ limit: 5, windowMs: 60_000 });
 const dummyPasswordHash = bcrypt.hash(randomBytes(32).toString("hex"), 12);
 
+// Create a JWT and matching database session so sign-out can revoke the token.
 async function createSession(user) {
   const sessionId = randomUUID();
   const token = jwt.sign({ sub: user.id, role: user.role }, env.jwtSecret, {
@@ -30,6 +31,7 @@ async function createSession(user) {
   return token;
 }
 
+// Expose safe account fields without sending password or status data to clients.
 function publicUser(user) {
   return {
     id: user.id,
@@ -39,6 +41,7 @@ function publicUser(user) {
   };
 }
 
+// Register every public signup as a student and create its profile atomically.
 authRouter.post("/register", loginLimit, async (request, response) => {
   const fullName = text(request.body.fullName, "Full name", { max: 120 });
   const userEmail = email(request.body.email);
@@ -96,6 +99,7 @@ authRouter.post("/register", loginLimit, async (request, response) => {
     .json({ accessToken, tokenType: "Bearer", user: publicUser(user) });
 });
 
+// Verify credentials and issue a session only for an active account.
 authRouter.post("/login", loginLimit, async (request, response) => {
   const userEmail = email(request.body.email);
   const password = text(request.body.password, "Password", {
@@ -120,10 +124,12 @@ authRouter.post("/login", loginLimit, async (request, response) => {
 });
 
 authRouter.get("/me", authenticate, async (request, response) => {
+  // Return the signed-in account attached by the authentication middleware.
   response.json({ user: publicUser(request.user) });
 });
 
 authRouter.post("/logout", authenticate, async (request, response) => {
+  // Revoke this token's database session so it cannot be reused.
   await query(
     "UPDATE auth_sessions SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL",
     [request.sessionId],
@@ -132,6 +138,7 @@ authRouter.post("/logout", authenticate, async (request, response) => {
 });
 
 authRouter.post("/change-password", authenticate, async (request, response) => {
+  // Change the password after checking the current password, then revoke sessions.
   const currentPassword = text(
     request.body.currentPassword,
     "Current password",
@@ -167,6 +174,7 @@ authRouter.post("/change-password", authenticate, async (request, response) => {
 });
 
 authRouter.post("/password-reset", resetLimit, async (request, response) => {
+  // Consume a one-time reset token and revoke all sessions for that account.
   const resetToken = text(request.body.token, "Reset token", {
     min: 40,
     max: 200,
@@ -207,6 +215,7 @@ authRouter.post("/password-reset", resetLimit, async (request, response) => {
 });
 
 authRouter.delete("/account", authenticate, async (request, response) => {
+  // Delete a student's account after password confirmation and clean stored resumes.
   if (request.user.role !== "student") {
     throw new HttpError(403, "Only student accounts can be deleted this way.");
   }

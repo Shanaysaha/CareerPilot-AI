@@ -10,6 +10,7 @@ const server = app.listen(env.port, env.host, () => {
 });
 
 async function stop(signal) {
+  // Stop accepting requests, then close PostgreSQL connections cleanly.
   console.log(`${signal} received. Closing the API.`);
   server.close(async () => {
     await pool.end();

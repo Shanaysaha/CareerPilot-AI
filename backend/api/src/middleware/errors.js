@@ -6,6 +6,7 @@ export class HttpError extends Error {
 }
 
 export function errorHandler(error, request, response, next) {
+  // Convert known failures to safe client messages and hide server internals.
   if (response.headersSent) return next(error);
 
   // Translate common database and upload errors into helpful HTTP responses.

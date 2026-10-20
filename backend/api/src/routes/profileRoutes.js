@@ -7,6 +7,7 @@ import { text, uuid } from "../middleware/validate.js";
 export const profileRouter = Router();
 profileRouter.use(authenticate);
 
+// Read the signed-in student's profile and selected career role.
 profileRouter.get("/me", async (request, response) => {
   if (request.user.role !== "student")
     throw new HttpError(403, "This profile belongs to students.");
@@ -24,6 +25,7 @@ profileRouter.get("/me", async (request, response) => {
   response.json({ profile: result.rows[0] });
 });
 
+// Update account details and profile preferences in one database transaction.
 profileRouter.put("/me", async (request, response) => {
   if (request.user.role !== "student")
     throw new HttpError(403, "This profile belongs to students.");

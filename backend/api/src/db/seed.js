@@ -1,6 +1,7 @@
 import { query, withTransaction } from "./pool.js";
 import { validateEnvironment } from "../config/env.js";
 
+// Insert starter roles, skills, practice questions, resources, and score settings.
 validateEnvironment();
 
 const skills = [

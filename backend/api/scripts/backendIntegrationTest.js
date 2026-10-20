@@ -14,6 +14,7 @@ if (!adminEmail || !adminPassword) {
 }
 
 async function request(method, path, { body, token, expectedStatus } = {}) {
+  // Send one API request and fail immediately when its response differs from expectation.
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {

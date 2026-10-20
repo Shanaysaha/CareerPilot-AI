@@ -1,6 +1,7 @@
 import { env } from "../config/env.js";
 
 async function postJson(path, body) {
+  // Send a signed internal JSON request to the private FastAPI service.
   const response = await fetch(`${env.aiServiceUrl}${path}`, {
     method: "POST",
     headers: {
@@ -19,6 +20,7 @@ async function postJson(path, body) {
 }
 
 export async function getAIProvider() {
+  // Read the provider name for UI/status messages without failing the API if AI is down.
   try {
     const response = await fetch(`${env.aiServiceUrl}/health`, {
       signal: AbortSignal.timeout(3000),
@@ -32,6 +34,7 @@ export async function getAIProvider() {
 }
 
 export function analyzeResumeText(resumeText, targetRole = "") {
+  // Ask the AI service to review resume text supplied by the student.
   return postJson("/v1/resume/analyze", {
     resume_text: resumeText,
     target_role: targetRole,
@@ -39,6 +42,7 @@ export function analyzeResumeText(resumeText, targetRole = "") {
 }
 
 export async function analyzeResumeFile(file, targetRole = "") {
+  // Forward an uploaded PDF/DOCX file so the AI service can extract and review it.
   const form = new FormData();
   const bytes = await import("node:fs/promises").then((fs) =>
     fs.readFile(file.path),
@@ -66,10 +70,12 @@ export async function analyzeResumeFile(file, targetRole = "") {
 }
 
 export function reviewInterviewAnswer(question, answer) {
+  // Request practice feedback for one interview answer.
   return postJson("/v1/interview/feedback", { question, answer });
 }
 
 export function recommendCareer(targetRole, currentSkills, missingSkills) {
+  // Turn the selected career role and skill gaps into learning suggestions.
   return postJson("/v1/career/recommendations", {
     target_role: targetRole,
     current_skills: currentSkills,

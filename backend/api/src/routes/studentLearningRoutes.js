@@ -15,6 +15,7 @@ export const learningRouter = Router();
 learningRouter.use(authenticate);
 const aiLimit = rateLimit({ limit: 30, windowMs: 60_000 });
 
+// Career catalog and skill tracking routes used to build a student's profile.
 learningRouter.get("/roles", async (req, res) => {
   const result = await query(
     "SELECT id,name,description FROM career_roles WHERE is_active=true ORDER BY name",
@@ -36,6 +37,7 @@ learningRouter.get("/skills/me", async (req, res) => {
   res.json({ skills: result.rows });
 });
 learningRouter.put("/skills/me", async (req, res) => {
+  // Replace the student's skill list in one transaction to avoid partial updates.
   requireStudent(req.user);
   if (!Array.isArray(req.body.skills) || req.body.skills.length > 100)
     throw new HttpError(400, "Provide a list of up to 100 skills.");
@@ -127,6 +129,7 @@ learningRouter.get("/career/recommendations", aiLimit, async (req, res) => {
     });
   }
 });
+// Learning-resource routes return active material and save personal progress.
 learningRouter.get("/resources", async (req, res) => {
   const result = await query(
     `SELECT lr.id,lr.title,lr.description,lr.url,lr.resource_type AS "resourceType",lr.difficulty,s.name AS skill,
@@ -151,6 +154,7 @@ learningRouter.put("/resources/:id/progress", async (req, res) => {
   res.json({ progress: result.rows[0] });
 });
 
+// Interview-practice routes manage question selection, answers, and history.
 learningRouter.get("/interviews/questions", async (req, res) => {
   const result = await query(
     "SELECT id,question_text AS question,category,difficulty FROM interview_questions WHERE is_active=true ORDER BY category,difficulty",
@@ -169,6 +173,7 @@ learningRouter.post("/interviews", async (req, res) => {
   res.status(201).json({ session: result.rows[0] });
 });
 learningRouter.post("/interviews/:id/responses", aiLimit, async (req, res) => {
+  // Save an answer, request feedback, and update the practice session score.
   requireStudent(req.user);
   const sid = uuid(req.params.id, "Session ID"),
     qid = uuid(req.body.questionId, "Question ID"),
@@ -241,6 +246,7 @@ learningRouter.get("/interviews/history", async (req, res) => {
   res.json({ sessions: result.rows });
 });
 
+// Coding-practice routes evaluate supported answer formats and show history.
 learningRouter.get("/coding/problems", async (req, res) => {
   const result = await query(
     'SELECT id,title,prompt,difficulty,problem_type AS "problemType",options_json AS options FROM coding_problems WHERE is_active=true ORDER BY difficulty,title',
@@ -248,6 +254,7 @@ learningRouter.get("/coding/problems", async (req, res) => {
   res.json({ problems: result.rows });
 });
 learningRouter.post("/coding/problems/:id/submissions", async (req, res) => {
+  // Grade a quiz answer; this feature intentionally does not execute submitted code.
   requireStudent(req.user);
   const id = uuid(req.params.id, "Problem ID"),
     answer = String(req.body.answer || "").trim();
@@ -289,6 +296,7 @@ learningRouter.get("/coding/submissions", async (req, res) => {
   res.json({ submissions: result.rows });
 });
 
+// Aptitude routes hide answer keys during attempts and save completed results.
 learningRouter.get("/aptitude/tests", async (req, res) => {
   const result = await query(
     'SELECT id,title,description,company_name AS "companyName" FROM aptitude_tests WHERE is_active=true ORDER BY title',
@@ -324,6 +332,7 @@ learningRouter.get("/aptitude/attempts/:id/questions", async (req, res) => {
   res.json({ questions: questions.rows });
 });
 learningRouter.post("/aptitude/attempts/:id/submit", async (req, res) => {
+  // Validate submitted answers against the attempt before recording a score.
   requireStudent(req.user);
   const id = uuid(req.params.id, "Attempt ID"),
     answers = req.body.answers;

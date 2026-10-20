@@ -1,4 +1,4 @@
--- Merge duplicate cohorts that differed only because academic_year was NULL.
+-- Merge cohorts that differ only by NULL versus empty academic year before adding uniqueness.
 CREATE TEMP TABLE cohort_merge_map ON COMMIT DROP AS
 SELECT id,
        first_value(id) OVER (PARTITION BY name, COALESCE(academic_year, '') ORDER BY created_at, id) AS keeper_id,
@@ -37,6 +37,7 @@ ALTER TABLE cohorts ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT 
 ALTER TABLE skills ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true;
 ALTER TABLE aptitude_questions ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true;
 
+-- Store only hashed, expiring, one-time password reset tokens.
 CREATE TABLE password_reset_tokens (
   token_hash char(64) PRIMARY KEY,
   user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -46,6 +47,7 @@ CREATE TABLE password_reset_tokens (
 );
 CREATE INDEX password_reset_user_idx ON password_reset_tokens(user_id, expires_at DESC);
 
+-- Backfill delivery rows so existing students receive notices already published to them.
 INSERT INTO notification_deliveries(notification_id, student_id)
 SELECT n.id, sp.user_id
 FROM notifications n

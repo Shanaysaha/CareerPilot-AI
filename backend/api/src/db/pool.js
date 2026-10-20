@@ -11,10 +11,12 @@ export const pool = new Pool({
 });
 
 export function query(text, values = []) {
+  // Run a parameterized SQL query through the shared connection pool.
   return pool.query(text, values);
 }
 
 export async function withTransaction(work) {
+  // Keep a group of related database changes all-or-nothing.
   const client = await pool.connect();
   try {
     await client.query("BEGIN");

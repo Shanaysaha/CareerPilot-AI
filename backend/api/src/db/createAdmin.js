@@ -4,6 +4,7 @@ import { email, text } from "../middleware/validate.js";
 import { validateEnvironment } from "../config/env.js";
 
 validateEnvironment();
+// Create the first administrator from terminal-only environment variables.
 const userEmail = email(process.env.ADMIN_EMAIL);
 const fullName = text(process.env.ADMIN_NAME, "Admin name", { max: 120 });
 const password = text(process.env.ADMIN_PASSWORD, "Admin password", {

@@ -5,6 +5,7 @@ export function text(
   name,
   { min = 1, max = 5000, optional = false } = {},
 ) {
+  // Trim text input and enforce its required or optional length limits.
   if (optional && (value === undefined || value === null || value === ""))
     return "";
   if (typeof value !== "string")
@@ -20,6 +21,7 @@ export function text(
 }
 
 export function email(value) {
+  // Normalize an email address and reject values that are not email-shaped.
   const result = text(value, "Email", { max: 254 }).toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(result)) {
     throw new HttpError(400, "Enter a valid email address.");
@@ -28,6 +30,7 @@ export function email(value) {
 }
 
 export function uuid(value, name = "ID") {
+  // Validate UUID path/body values before using them in database operations.
   if (
     typeof value !== "string" ||
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -40,6 +43,7 @@ export function uuid(value, name = "ID") {
 }
 
 export function integer(value, name, { min = 0, max = 100 } = {}) {
+  // Parse and bound whole-number values such as scores and proficiency levels.
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
     throw new HttpError(

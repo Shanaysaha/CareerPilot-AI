@@ -35,6 +35,7 @@ export async function authenticate(request, response, next) {
 }
 
 export function requireRole(...allowedRoles) {
+  // Restrict a route to the listed roles after authenticate has loaded the user.
   return (request, response, next) => {
     if (!request.user || !allowedRoles.includes(request.user.role)) {
       return next(new HttpError(403, "You do not have permission to do that."));

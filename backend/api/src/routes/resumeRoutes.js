@@ -27,6 +27,7 @@ resumeRouter.use((request, response, next) => {
   }
 });
 
+// Turn nested resume-builder data into readable text for AI analysis.
 function flatten(value, lines = []) {
   if (typeof value === "string" || typeof value === "number")
     lines.push(String(value));
@@ -39,6 +40,7 @@ function flatten(value, lines = []) {
   return lines.join("\n").slice(0, 30000);
 }
 
+// Save a new version and make it the student's current resume version.
 async function saveVersion(studentId, { title, content, file }) {
   return withTransaction(async (client) => {
     const saved = await client.query(
@@ -76,6 +78,7 @@ async function saveVersion(studentId, { title, content, file }) {
   });
 }
 
+// Analyze a saved builder or uploaded version, honoring the student's AI consent.
 async function analyzeSaved(request, version, textValue, file) {
   const provider = await getAIProvider();
   const consent = await query(
@@ -123,6 +126,7 @@ async function analyzeSaved(request, version, textValue, file) {
   }
 }
 
+// Return the student's current resume and its most recent analysis.
 resumeRouter.get("/me", async (request, response) => {
   requireStudent(request.user);
   const result = await query(
@@ -142,6 +146,7 @@ resumeRouter.get("/me", async (request, response) => {
   response.json({ resume: result.rows[0] || null, analyses: analyses.rows });
 });
 
+// Save resume-builder content as a version and analyze its text.
 resumeRouter.put("/me/builder", aiLimit, async (request, response) => {
   requireStudent(request.user);
   const title = text(request.body.title || "My Resume", "Title", { max: 160 });
@@ -159,6 +164,7 @@ resumeRouter.put("/me/builder", aiLimit, async (request, response) => {
   response.status(201).json({ ...saved, analysis });
 });
 
+// Upload a PDF/DOCX resume, extract its text, and save an analyzed version.
 resumeRouter.post(
   "/me/upload",
   aiLimit,
@@ -213,6 +219,7 @@ resumeRouter.post(
   },
 );
 
+// Re-run analysis on the current version without creating another version.
 resumeRouter.post("/me/analyze", aiLimit, async (request, response) => {
   requireStudent(request.user);
   const versionId = uuid(request.body.versionId, "Resume version ID");
@@ -236,6 +243,7 @@ resumeRouter.post("/me/analyze", aiLimit, async (request, response) => {
   response.json({ analysis: output });
 });
 
+// List prior resume versions so students can review their history.
 resumeRouter.get("/me/versions", async (request, response) => {
   requireStudent(request.user);
   const result = await query(
@@ -247,6 +255,7 @@ resumeRouter.get("/me/versions", async (request, response) => {
   response.json({ versions: result.rows });
 });
 
+// Stream a stored resume only after confirming it belongs to this student.
 resumeRouter.get("/me/versions/:id/file", async (request, response, next) => {
   const versionId = uuid(request.params.id, "Resume version ID");
   const result = await query(
@@ -269,6 +278,7 @@ resumeRouter.get("/me/versions/:id/file", async (request, response, next) => {
   });
 });
 
+// Delete a saved resume version and remove its private file from disk.
 resumeRouter.delete("/me/versions/:id", async (request, response) => {
   const versionId = uuid(request.params.id, "Resume version ID");
   const found = await query(`SELECT v.id,v.resume_id,v.stored_path,r.student_id FROM resume_versions v JOIN resumes r ON r.id=v.resume_id WHERE v.id=$1`, [versionId]);

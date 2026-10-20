@@ -8,6 +8,7 @@ import { recordAudit } from "../services/audit.js";
 export const adminContentRouter = Router();
 adminContentRouter.use(authenticate, requireRole("administrator"));
 
+// Read-only catalog endpoints let the admin panel display editable content.
 adminContentRouter.get("/catalog/roles", async (_req, res) => {
   const result = await query("SELECT id,name,description,is_active AS \"isActive\" FROM career_roles ORDER BY name");
   res.json({ roles: result.rows });
@@ -42,6 +43,7 @@ adminContentRouter.get("/readiness-formulas", async (_req, res) => {
   res.json({ formulas: result.rows });
 });
 
+// Validate a bounded list of strings, such as multiple-choice options.
 function stringList(value, name, { min = 1, max = 20, itemMax = 300 } = {}) {
   if (!Array.isArray(value) || value.length < min || value.length > max) {
     throw new HttpError(400, `${name} must contain ${min} to ${max} items.`);
@@ -225,6 +227,7 @@ adminContentRouter.patch("/catalog/aptitude-questions/:id", async (req, res) => 
 });
 
 adminContentRouter.put("/readiness-formulas/:version", async (req, res) => {
+  // Activate a new formula version while preserving earlier formula history.
   const version = text(req.params.version, "Formula version", { max: 40 });
   const weights = req.body.weights, minimum = req.body.minimumEvidence;
   const keys = ["resume", "skills", "interview", "coding", "aptitude"];
