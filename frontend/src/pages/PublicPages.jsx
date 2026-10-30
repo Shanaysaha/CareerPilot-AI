@@ -3,7 +3,7 @@ import { ArrowRight, ArrowUpRight, BarChart3, BookOpen, CheckCircle2, Code2, Fil
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext.jsx";
 import { api } from "../api.js";
-import { Button, Field, FormIntro, MascotArt, Panel, PublicHeader, StatusMessage } from "../components.jsx";
+import { Brand, Button, Field, FormIntro, MascotArt, Panel, PublicHeader, StatusMessage } from "../components.jsx";
 
 const featureCards = [
   ["AI Resume Analyzer", "Get clear feedback and improve your resume for better opportunities.", FileText, "violet"],

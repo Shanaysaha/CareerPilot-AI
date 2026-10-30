@@ -3,6 +3,8 @@ import { useAuth } from "./AuthContext.jsx";
 import { AppShell } from "./components.jsx";
 import { ContactPage, FeaturesPage, LandingPage, LoginPage, RegisterPage, ResetPasswordPage } from "./pages/PublicPages.jsx";
 import { StaffDashboardPage } from "./pages/StaffPages.jsx";
+import { StaffNotificationsPage, StaffReportsPage } from "./pages/StaffPages.jsx";
+import { AdminAuditPage, AdminCohortsPage, AdminContentPage, AdminReadinessFormulaPage, AdminStaffPage } from "./pages/AdminPages.jsx";
 import { AptitudePage, CareerPage, CodingPage, DashboardPage, InterviewPage, LearningPage, NotificationsPage, ProfilePage, ReadinessPage, ResumePage, SettingsPage, SkillGapPage } from "./pages/StudentPages.jsx";
 
 // Keep private pages behind sign-in and remember where the visitor was going.
@@ -32,6 +34,12 @@ function StaffOnly({ children }) {
   return user?.role === "student" ? <Navigate to="/app/dashboard" replace/> : children;
 }
 
+// Keep administrator catalog and account controls away from officer accounts.
+function AdminOnly({ children }) {
+  const { user } = useAuth();
+  return user?.role === "administrator" ? children : <Navigate to="/app/staff" replace/>;
+}
+
 // Connect every public, student, and placement page to its friendly web address.
 export default function App() {
   return <Routes>
@@ -44,6 +52,13 @@ export default function App() {
     <Route path="/app" element={<ProtectedArea/>}>
       <Route index element={<WorkspaceHome/>}/>
       <Route path="staff" element={<StaffOnly><StaffDashboardPage/></StaffOnly>}/>
+      <Route path="staff/reports" element={<StaffOnly><StaffReportsPage/></StaffOnly>}/>
+      <Route path="staff/notifications" element={<StaffOnly><StaffNotificationsPage/></StaffOnly>}/>
+      <Route path="admin/cohorts" element={<AdminOnly><AdminCohortsPage/></AdminOnly>}/>
+      <Route path="admin/staff" element={<AdminOnly><AdminStaffPage/></AdminOnly>}/>
+      <Route path="admin/content" element={<AdminOnly><AdminContentPage/></AdminOnly>}/>
+      <Route path="admin/readiness" element={<AdminOnly><AdminReadinessFormulaPage/></AdminOnly>}/>
+      <Route path="admin/audit" element={<AdminOnly><AdminAuditPage/></AdminOnly>}/>
       <Route path="dashboard" element={<StudentOnly><DashboardPage/></StudentOnly>}/>
       <Route path="resume" element={<StudentOnly><ResumePage/></StudentOnly>}/>
       <Route path="skills" element={<StudentOnly><SkillGapPage/></StudentOnly>}/>

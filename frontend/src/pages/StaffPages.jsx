@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowRight, Bell, BriefcaseBusiness, CheckCircle2, Plus, Send, Users } from "lucide-react";
+import { ArrowRight, Bell, BriefcaseBusiness, CheckCircle2, Plus, Send, Users, Archive, BarChart3 } from "lucide-react";
 import { api } from "../api.js";
 import { useAuth } from "../AuthContext.jsx";
 import { Button, EmptyState, Field, MetricCard, PageHeading, Panel, StatusMessage } from "../components.jsx";
@@ -118,4 +118,73 @@ function AdminTools({ cohorts, onCreated, setMessage, setProblem }) {
   }
 
   return <Panel title="Administrator tools" subtitle="Set up cohorts and placement officer access."><div className="admin-tools-grid"><form onSubmit={createCohort}><h3><Plus size={18}/> Create cohort</h3><Field label="Cohort name"><input name="name" required maxLength="120" placeholder="2027 Computer Science"/></Field><Field label="Academic year"><input name="academicYear" maxLength="20" placeholder="2026–2027"/></Field><Button type="submit" disabled={busy}>Create cohort</Button></form><form onSubmit={createOfficer}><h3><Users size={18}/> Create placement officer</h3><Field label="Full name"><input name="fullName" required maxLength="120"/></Field><Field label="Email"><input name="email" type="email" required/></Field><Field label="Temporary password"><input name="temporaryPassword" type="password" minLength="12" required/><small>Share it with the officer through a private channel.</small></Field><Button type="submit" disabled={busy}>Create officer</Button></form><form onSubmit={assignOfficer}><h3><BriefcaseBusiness size={18}/> Assign officer</h3><Field label="Officer"><select name="officerId" required defaultValue=""><option value="" disabled>Choose an officer</option>{officers.map((item) => <option key={item.id} value={item.id}>{item.fullName} · {item.email}</option>)}</select></Field><Field label="Cohort"><select name="cohortId" required value={cohortId} onChange={(event) => setCohortId(event.target.value)}><option value="" disabled>Choose a cohort</option>{cohorts.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field><Button type="submit" disabled={busy}>Assign access</Button></form></div></Panel>;
+}
+
+// Show readiness and resume coverage using only the selected cohort report API.
+export function StaffReportsPage() {
+  const { data: cohortData, loading, error } = useRemote("/officer/cohorts");
+  const cohorts = cohortData?.cohorts || [];
+  const [selectedId, setSelectedId] = useState("");
+  const [report, setReport] = useState(null);
+  const [problem, setProblem] = useState("");
+
+  // Load the aggregate report for the selected cohort, or the officer's full scope.
+  useEffect(() => {
+    setProblem("");
+    api(`/officer/reports/summary${selectedId ? `?cohortId=${selectedId}` : ""}`)
+      .then((result) => setReport(result.summary))
+      .catch((reason) => setProblem(reason.message));
+  }, [selectedId]);
+
+  const measures = [
+    ["Students", Number(report?.students || 0), "tone-violet"],
+    ["Average readiness", Number(report?.averageReadiness || 0), "tone-green"],
+    ["Complete readiness", Number(report?.completeReadiness || 0), "tone-blue"],
+    ["Resume activity", Number(report?.studentsWithResume || 0), "tone-orange"],
+  ];
+
+  return <>
+    <PageHeading title="Reports & readiness analytics" subtitle="Review the preparation evidence available for your cohort scope." art="results"/>
+    <StatusMessage tone="error">{error || problem}</StatusMessage>
+    <Panel title="Choose a cohort" subtitle="The report updates from the backend data when you select a group."><Field label="Cohort"><select value={selectedId} onChange={(event) => setSelectedId(event.target.value)}><option value="">All assigned cohorts</option>{cohorts.map((item) => <option value={item.id} key={item.id}>{item.name} {item.academicYear ? `· ${item.academicYear}` : ""}</option>)}</select></Field></Panel>
+    <div className="metric-grid">{measures.map(([label, value, color]) => <MetricCard key={label} label={label} value={label === "Average readiness" ? `${value}%` : value} caption={label === "Resume activity" ? "students with a saved resume" : "current cohort report"} icon={BarChart3} color={color.replace("tone-", "")}/>)}</div>
+    <Panel title="Cohort overview" subtitle={loading ? "Loading cohorts…" : "Average readiness by cohort, based on available student evidence."}>{cohorts.length ? <div className="report-bars">{cohorts.map((cohort) => <div className="report-bar" key={cohort.id}><span>{cohort.name}</span><div><i style={{ width: `${Math.min(100, Number(cohort.averageReadiness || 0))}%` }}/></div><strong>{cohort.averageReadiness ?? 0}%</strong><small>{cohort.students || 0} students</small></div>)}</div> : <EmptyState icon={BriefcaseBusiness} title="No cohorts available">Your administrator can assign a cohort to your account.</EmptyState>}</Panel>
+  </>;
+}
+
+// Publish, review, and archive placement notices using the staff notification API.
+export function StaffNotificationsPage() {
+  const { data, loading, error, refresh } = useRemote("/officer/notifications");
+  const { data: cohortData } = useRemote("/officer/cohorts");
+  const { user } = useAuth();
+  const isAdmin = user?.role === "administrator";
+  const cohorts = cohortData?.cohorts || [];
+  const notices = data?.notifications || [];
+  const [message, setMessage] = useState("");
+  const [problem, setProblem] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  // Publish a notice to a selected cohort or to all students as an administrator.
+  async function publish(event) {
+    event.preventDefault(); setBusy(true); setProblem(""); setMessage("");
+    const form = new FormData(event.currentTarget);
+    try {
+      await api("/officer/notifications", { method: "POST", body: { title: form.get("title"), body: form.get("body"), cohortId: form.get("cohortId") || null } });
+      event.currentTarget.reset(); setMessage("Placement update published."); await refresh();
+    } catch (reason) { setProblem(reason.message); }
+    finally { setBusy(false); }
+  }
+
+  // Archive a notice when the backend allows the current account to manage it.
+  async function archive(id) {
+    setProblem("");
+    try { await api(`/officer/notifications/${id}/archive`, { method: "PATCH" }); setMessage("Notification archived."); await refresh(); }
+    catch (reason) { setProblem(reason.message); }
+  }
+
+  return <>
+    <PageHeading title="Placement notifications" subtitle="Share timely updates with students in your placement scope." art="phone"/>
+    <StatusMessage tone="error">{error || problem}</StatusMessage><StatusMessage tone="success">{message}</StatusMessage>
+    <div className="two-column-layout"><Panel title="Create an update" subtitle="Published notices are delivered using the selected cohort scope."><form onSubmit={publish}><Field label="Title"><input name="title" maxLength="160" required/></Field>{isAdmin && <Field label="Audience"><select name="cohortId" defaultValue=""><option value="">All students</option>{cohorts.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>}<Field label="Message"><textarea name="body" rows="5" required maxLength="5000"/></Field><Button type="submit" disabled={busy}><Send size={16}/>{busy ? "Publishing…" : "Publish update"}</Button></form></Panel><Panel title="Recent updates" subtitle={loading ? "Loading notifications…" : `${notices.length} notifications available in your scope.`}>{notices.length ? <div className="admin-item-list">{notices.map((item) => <article className="admin-item" key={item.id}><span className="feature-icon tone-violet"><Bell size={19}/></span><div><strong>{item.title}</strong><small>{item.cohort || "All students"} · {formatDate(item.publishedAt || item.createdAt)}{item.archivedAt ? " · Archived" : ""}</small><small>{item.body}</small></div><span className={item.isPublished ? "status-chip badge-green" : "status-chip badge-orange"}>{item.isPublished ? "Published" : "Draft"}</span>{!item.archivedAt && <Button className="button-small" variant="outline" onClick={() => archive(item.id)}><Archive size={15}/>Archive</Button>}</article>)}</div> : <EmptyState icon={Bell} title="No placement updates">Published messages will appear here.</EmptyState>}</Panel></div>
+  </>;
 }
