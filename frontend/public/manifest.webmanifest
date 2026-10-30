@@ -1,0 +1,10 @@
+{
+  "name": "CareerPilot AI",
+  "short_name": "CareerPilot",
+  "description": "Plan, learn, and practise for your career.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f4ff",
+  "theme_color": "#6950f5",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
