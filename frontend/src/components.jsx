@@ -71,15 +71,15 @@ const studentLinks = [
 function Sidebar({ user, closeMenu }) {
   const isStaff = user?.role === "placement_officer" || user?.role === "administrator";
   const links = user?.role === "administrator"
-    ? [["Admin dashboard", "/app/staff", BriefcaseBusiness], ["Cohorts", "/app/admin/cohorts", Users], ["Staff accounts", "/app/admin/staff", UserRound], ["Content & questions", "/app/admin/content", Database], ["Readiness formula", "/app/admin/readiness", Activity], ["Audit log", "/app/admin/audit", FileQuestion], ["Placement updates", "/app/staff/notifications", Bell]]
+    ? [["Overview", "/app/admin", House], ["Cohorts", "/app/admin/cohorts", Users], ["Staff accounts", "/app/admin/staff", UserRound], ["Content library", "/app/admin/content", Database], ["Readiness settings", "/app/admin/readiness", Activity], ["Reports", "/app/staff/reports", ChartNoAxesColumnIncreasing], ["Notifications", "/app/staff/notifications", Bell], ["Audit logs", "/app/admin/audit", FileQuestion]]
     : isStaff
       ? [["Placement dashboard", "/app/staff", BriefcaseBusiness], ["Cohorts & students", "/app/staff", Users], ["Reports & readiness", "/app/staff/reports", Activity], ["Placement updates", "/app/staff/notifications", Bell]]
       : studentLinks;
   return (
     <aside className="sidebar">
-      <div className="sidebar-brand"><Brand compact /></div>
+      <div className="sidebar-brand"><Brand compact />{user?.role === "administrator" && <span className="admin-module-label">Admin Module</span>}</div>
       <nav className="side-nav" aria-label="Main navigation">
-        {links.map(([label, path, Icon]) => <NavLink key={path} to={path} onClick={closeMenu} className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}><Icon size={22} /><span>{label}</span></NavLink>)}
+        {links.map(([label, path, Icon]) => <NavLink key={path} to={path} end={path === "/app/admin"} onClick={closeMenu} className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}><Icon size={22} /><span>{label}</span></NavLink>)}
       </nav>
       <div className="sidebar-promo"><span className="promo-plane">➤</span><p>Plan Today.<br />Build Tomorrow.</p><MascotArt className="promo-mascot" /></div>
       <div className="sidebar-caption">Your next step starts here.</div>
@@ -93,7 +93,7 @@ function Topbar({ user, openMenu, signOut }) {
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
   const isStaff = user?.role === "placement_officer" || user?.role === "administrator";
-  const searchRoutes = user?.role === "administrator" ? [["Admin dashboard", "/app/staff"], ["Cohorts", "/app/admin/cohorts"], ["Content & questions", "/app/admin/content"], ["Readiness formula", "/app/admin/readiness"], ["Audit log", "/app/admin/audit"]] : isStaff ? [["Placement dashboard", "/app/staff"], ["Reports & readiness", "/app/staff/reports"], ["Placement updates", "/app/staff/notifications"]] : [["Resume", "/app/resume"], ["Skills", "/app/skills"], ["Learning resources", "/app/learning"], ["Aptitude tests", "/app/aptitude"], ["Career guidance", "/app/career"]];
+  const searchRoutes = user?.role === "administrator" ? [["Admin overview", "/app/admin"], ["Cohorts", "/app/admin/cohorts"], ["Staff accounts", "/app/admin/staff"], ["Content library", "/app/admin/content"], ["Readiness settings", "/app/admin/readiness"], ["Reports", "/app/staff/reports"], ["Notifications", "/app/staff/notifications"], ["Audit logs", "/app/admin/audit"]] : isStaff ? [["Placement dashboard", "/app/staff"], ["Reports & readiness", "/app/staff/reports"], ["Placement updates", "/app/staff/notifications"]] : [["Resume", "/app/resume"], ["Skills", "/app/skills"], ["Learning resources", "/app/learning"], ["Aptitude tests", "/app/aptitude"], ["Career guidance", "/app/career"]];
   const matches = query.trim() ? searchRoutes.filter(([label]) => label.toLowerCase().includes(query.toLowerCase())) : [];
   return (
     <header className="topbar">
@@ -116,7 +116,7 @@ function Topbar({ user, openMenu, signOut }) {
 export function AppShell({ user, signOut, children }) {
   const [menuOpen, setMenuOpen] = useState(false);
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${user?.role === "administrator" ? "admin-shell" : ""}`}>
       {menuOpen && <button aria-label="Close menu backdrop" className="sidebar-backdrop" onClick={() => setMenuOpen(false)} />}
       <Sidebar user={user} closeMenu={() => setMenuOpen(false)} />
       <div className="app-main"><Topbar user={user} openMenu={() => setMenuOpen(true)} signOut={signOut} /><main className="page-content">{children}</main></div>

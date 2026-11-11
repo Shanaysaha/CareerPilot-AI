@@ -114,8 +114,8 @@ staffRouter.get("/reports/summary", async (req, res) => {
 // Staff notification routes list, publish, update, and archive notices.
 staffRouter.get("/notifications", async (req, res) => {
   const result = req.user.role === "administrator"
-    ? await query(`SELECT n.id,n.title,n.body,n.is_published AS "isPublished",n.published_at AS "publishedAt",n.archived_at AS "archivedAt",n.cohort_id AS "cohortId",c.name AS cohort FROM notifications n LEFT JOIN cohorts c ON c.id=n.cohort_id ORDER BY n.created_at DESC`)
-    : await query(`SELECT n.id,n.title,n.body,n.is_published AS "isPublished",n.published_at AS "publishedAt",n.archived_at AS "archivedAt",n.cohort_id AS "cohortId",c.name AS cohort FROM notifications n LEFT JOIN cohorts c ON c.id=n.cohort_id WHERE n.author_id=$1 OR n.cohort_id IN (SELECT cohort_id FROM officer_cohorts WHERE officer_id=$1) ORDER BY n.created_at DESC`, [req.user.id]);
+    ? await query(`SELECT n.id,n.title,n.body,n.is_published AS "isPublished",n.published_at AS "publishedAt",n.archived_at AS "archivedAt",n.cohort_id AS "cohortId",n.created_at AS "createdAt",c.name AS cohort FROM notifications n LEFT JOIN cohorts c ON c.id=n.cohort_id ORDER BY n.created_at DESC`)
+    : await query(`SELECT n.id,n.title,n.body,n.is_published AS "isPublished",n.published_at AS "publishedAt",n.archived_at AS "archivedAt",n.cohort_id AS "cohortId",n.created_at AS "createdAt",c.name AS cohort FROM notifications n LEFT JOIN cohorts c ON c.id=n.cohort_id WHERE n.author_id=$1 OR n.cohort_id IN (SELECT cohort_id FROM officer_cohorts WHERE officer_id=$1) ORDER BY n.created_at DESC`, [req.user.id]);
   res.json({ notifications: result.rows });
 });
 staffRouter.post("/notifications", async (req, res) => {
@@ -229,6 +229,20 @@ staffRouter.post(
     res.status(201).json({ assigned: Boolean(result.rowCount) });
   },
 );
+// Give administrators a directory of staff accounts and their cohort assignments.
+staffRouter.get("/users", requireRole("administrator"), async (req, res) => {
+  const result = await query(
+    `SELECT u.id,u.full_name AS "fullName",u.email,u.role,u.status,
+      u.created_at AS "createdAt",
+      COALESCE(array_agg(c.name ORDER BY c.name) FILTER (WHERE c.id IS NOT NULL), ARRAY[]::text[]) AS cohorts
+     FROM users u
+     LEFT JOIN officer_cohorts oc ON oc.officer_id=u.id
+     LEFT JOIN cohorts c ON c.id=oc.cohort_id
+     WHERE u.role IN ('placement_officer','administrator')
+     GROUP BY u.id ORDER BY u.full_name`,
+  );
+  res.json({ users: result.rows, currentUserId: req.user.id });
+});
 staffRouter.post("/users", requireRole("administrator"), async (req, res) => {
   const userEmail = email(req.body.email),
     fullName = text(req.body.fullName, "Full name", { max: 120 }),

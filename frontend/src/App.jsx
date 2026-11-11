@@ -4,7 +4,7 @@ import { AppShell } from "./components.jsx";
 import { ContactPage, FeaturesPage, LandingPage, LoginPage, RegisterPage, ResetPasswordPage } from "./pages/PublicPages.jsx";
 import { StaffDashboardPage } from "./pages/StaffPages.jsx";
 import { StaffNotificationsPage, StaffReportsPage } from "./pages/StaffPages.jsx";
-import { AdminAuditPage, AdminCohortsPage, AdminContentPage, AdminReadinessFormulaPage, AdminStaffPage } from "./pages/AdminPages.jsx";
+import { AdminAuditPage, AdminCohortsPage, AdminContentPage, AdminOverviewPage, AdminReadinessFormulaPage, AdminStaffPage } from "./pages/AdminPages.jsx";
 import { AptitudePage, CareerPage, CodingPage, DashboardPage, InterviewPage, LearningPage, NotificationsPage, ProfilePage, ReadinessPage, ResumePage, SettingsPage, SkillGapPage } from "./pages/StudentPages.jsx";
 
 // Keep private pages behind sign-in and remember where the visitor was going.
@@ -19,7 +19,8 @@ function ProtectedArea() {
 // Send each signed-in role to the workspace designed for that role.
 function WorkspaceHome() {
   const { user } = useAuth();
-  return <Navigate to={user?.role === "student" ? "/app/dashboard" : "/app/staff"} replace/>;
+  const destination = user?.role === "student" ? "/app/dashboard" : user?.role === "administrator" ? "/app/admin" : "/app/staff";
+  return <Navigate to={destination} replace/>;
 }
 
 // Show student-only routes to students and staff pages to placement staff.
@@ -54,6 +55,7 @@ export default function App() {
       <Route path="staff" element={<StaffOnly><StaffDashboardPage/></StaffOnly>}/>
       <Route path="staff/reports" element={<StaffOnly><StaffReportsPage/></StaffOnly>}/>
       <Route path="staff/notifications" element={<StaffOnly><StaffNotificationsPage/></StaffOnly>}/>
+      <Route path="admin" element={<AdminOnly><AdminOverviewPage/></AdminOnly>}/>
       <Route path="admin/cohorts" element={<AdminOnly><AdminCohortsPage/></AdminOnly>}/>
       <Route path="admin/staff" element={<AdminOnly><AdminStaffPage/></AdminOnly>}/>
       <Route path="admin/content" element={<AdminOnly><AdminContentPage/></AdminOnly>}/>
