@@ -33,8 +33,18 @@ export function AuthProvider({ children }) {
   }, []);
 
   // Sign in and store the short-lived bearer token for protected API calls.
-  async function signIn(email, password) {
+  async function signIn(email, password, loginType = "user") {
     const result = await api("/auth/login", { method: "POST", body: { email, password } });
+    const isAdminAccount = result.user.role === "administrator";
+    if ((loginType === "admin") !== isAdminAccount) {
+      // Revoke the newly created server session if the selected account type is wrong.
+      localStorage.setItem("careerpilot-token", result.accessToken);
+      try { await api("/auth/logout", { method: "POST" }); } catch {}
+      localStorage.removeItem("careerpilot-token");
+      throw new Error(loginType === "admin"
+        ? "This account is not an administrator. Choose Login as user instead."
+        : "This is an administrator account. Choose Login as admin instead.");
+    }
     localStorage.setItem("careerpilot-token", result.accessToken);
     setUser(result.user);
     return result.user;
