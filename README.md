@@ -20,7 +20,9 @@ CareerPilot AI is a student career and placement preparation platform built as a
 
 ## Run CareerPilot AI on your laptop
 
-The instructions below use Windows PowerShell. Install **Node.js 20 or newer**, **Python 3.10 or newer**, and **PostgreSQL 13 or newer** first. The project does not include a shared hosted database: each developer runs the database on their own machine.
+The instructions below use Windows PowerShell. Install **Node.js 20.19+ (20.x) or 22.12+**, **Python 3.10 or newer**, and **PostgreSQL 13 or newer** first. The project does not include a shared hosted database: each developer runs the database on their own machine.
+
+If you downloaded the compiled application from `Program/`, follow [the compiled application instructions](Program/README.md) for the frontend startup step instead of running the development server below.
 
 ### 1. Get the project and create a database
 
@@ -129,6 +131,21 @@ backend/api/    Express API, database migrations, and seed data
 backend/ai-service/  FastAPI service for AI-assisted feedback
 docs/           Project specifications and planning documents
 ```
+
+## University submission folders
+
+The six folders below follow the supplied BCA major project format. The editable application remains in `frontend/` and `backend/` so existing development commands continue to work.
+
+| Folder | Contents |
+| --- | --- |
+| [Presentation](Presentation/) | Existing 15-slide design presentation; final implementation presentation pending |
+| [Documentation](Documentation/) | Current Word report and submission checklist; report chapters pending |
+| [Source Code](Source%20Code/) | Complete application source ZIP, including dependency manifests and lockfiles |
+| [Program](Program/) | Compiled frontend and backend bundle with local running instructions |
+| [Support](Support/) | Runtime requirements, dependency setup, packaging script and archive checksums |
+| [Help](Help/USER_MANUAL.md) | Installation pointers and student, placement officer and administrator user manual |
+
+See the [submission checklist](Documentation/SUBMISSION_CHECKLIST.md) for outstanding report and presentation work. The project URL to include in the final report and presentation is https://github.com/Shanaysaha/CareerPilot-AI.
 
 ## Scope and responsible use
 

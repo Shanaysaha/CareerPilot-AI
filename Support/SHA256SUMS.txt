@@ -1,0 +1,2 @@
+14a94275e299b66ba075d8adb00a814dc900ae67eb2a862e344920bdd249e4ac  Source Code/CareerPilot_AI_Source.zip
+787f0eb55424f3b84bb0eabd3bb29333ab497468724f2a2f52abea02288e1fda  Program/CareerPilot_AI_Local_Application.zip
